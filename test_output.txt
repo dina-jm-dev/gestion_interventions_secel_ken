@@ -1,0 +1,45 @@
+﻿Array
+(
+    [0] => Array
+        (
+            [id_utilisateur] => 1
+            [nom] => Administrateur
+            [email] => admin@secel.com
+            [login] => admin
+            [mot_de_passe] => $2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi
+            [telephone] => 
+            [role] => admin
+            [id_specialite] => 
+            [disponible] => 1
+            [date_creation] => 2026-03-18 11:39:42
+        )
+
+    [1] => Array
+        (
+            [id_utilisateur] => 2
+            [nom] => ken
+            [email] => ken@secel.com
+            [login] => ken
+            [mot_de_passe] => $2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi
+            [telephone] => 
+            [role] => technicien
+            [id_specialite] => 
+            [disponible] => 1
+            [date_creation] => 2026-03-18 11:39:42
+        )
+
+    [2] => Array
+        (
+            [id_utilisateur] => 3
+            [nom] => dina
+            [email] => dina@secel.com
+            [login] => dina
+            [mot_de_passe] => $2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi
+            [telephone] => 
+            [role] => client
+            [id_specialite] => 
+            [disponible] => 1
+            [date_creation] => 2026-03-18 11:39:42
+        )
+
+)

@@ -67,7 +67,7 @@ if (!file_exists($page_path)) {
         }
         ?>
         
-        <main class="main-content" style="<?php echo (!isset($_SESSION['id_utilisateur']) || $page == 'home') ? 'width: 100%;' : ''; ?>">
+        <main class="main-content <?php echo (isset($_SESSION['id_utilisateur']) && $page !== 'home') ? 'with-sidebar' : ''; ?>">
             <?php 
             // Header inclus sur toutes les pages
             include 'includes/header.php'; 

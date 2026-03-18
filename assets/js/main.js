@@ -44,3 +44,23 @@ const showMessage = (msg, type = 'info') => {
     // Implémentation future de toasts/alertes simples
     alert(msg);
 };
+
+// Logique Header Intelligent (Sticky scroll up)
+let lastScrollY = window.scrollY;
+const mainHeader = document.querySelector('.main-header');
+
+if (mainHeader) {
+    window.addEventListener('scroll', () => {
+        const currentScrollY = window.scrollY;
+        
+        // Cacher si on descend (et qu'on a dépassé 60px), Montrer si on monte
+        if (currentScrollY > lastScrollY && currentScrollY > 60) {
+            mainHeader.classList.add('hide-header');
+        } else {
+            mainHeader.classList.remove('hide-header');
+        }
+        
+        lastScrollY = currentScrollY;
+    }, { passive: true });
+}
+

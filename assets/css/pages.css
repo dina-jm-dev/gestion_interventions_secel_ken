@@ -3,7 +3,8 @@
 /* =======================================
    Header
 ======================================= */
-.main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl); padding: var(--space-md); background: #fff; border-radius: var(--radius-md); box-shadow: var(--shadow); }
+.main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl); padding: var(--space-md); background: #fff; border-radius: var(--radius-md); box-shadow: var(--shadow); position: sticky; top: 0; z-index: 900; transition: transform 0.3s ease; }
+.main-header.hide-header { transform: translateY(-100%); }
 .page-logo img { height: 40px; width: auto; }
 .user-profile { display: flex; align-items: center; gap: var(--space-md); }
 .user-info { text-align: right; }
@@ -93,14 +94,11 @@
 .tech-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--space-md); }
 
 /* Stats Cards */
-.stat-primary { border-left: 4px solid var(--primary); }
-.stat-success { border-left: 4px solid var(--success); }
-.stat-warning { border-left: 4px solid var(--warning); }
+/* Stats Cards */
+.stat-primary, .stat-success, .stat-warning { border: none !important; box-shadow: var(--shadow); }
 .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
 .stat-value { font-size: 1.8rem; font-weight: 800; }
-.text-primary { color: var(--primary); }
-.text-success { color: var(--success); }
-.text-warning { color: var(--warning); }
+.text-primary, .text-success, .text-warning { color: var(--primary) !important; }
 
 /* Utility */
 .mb-1 { margin-bottom: var(--space-xs); }

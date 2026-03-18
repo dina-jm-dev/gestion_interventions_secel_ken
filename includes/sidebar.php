@@ -40,7 +40,7 @@
     </nav>
 
     <div class="sidebar-footer">
-        <a href="config/logout.php" class="nav-item" style="background: #fca5a5; color: #ffffff;">
+        <a href="config/logout.php" class="nav-item" style="background: var(--danger); color: #ffffff;">
             <img src="assets/img/door_open_24dp_FFF_FILL0_wght400_GRAD0_opsz24.svg" alt="Déconnexion" style="filter: none;">
             <span>Déconnexion</span>
         </a>

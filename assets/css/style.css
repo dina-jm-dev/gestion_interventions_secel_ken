@@ -81,6 +81,9 @@ a {
     display: flex;
     flex-direction: column;
 }
+.main-content.with-sidebar {
+    margin-left: 280px;
+}
 
 #page-content {
     flex-grow: 1;
@@ -216,8 +219,12 @@ th {
     padding: var(--space-lg);
     display: flex;
     flex-direction: column;
-    position: sticky;
+    position: fixed;
     top: 0;
+    left: 0;
+    bottom: 0;
+    overflow-y: auto;
+    z-index: 1000;
 }
 
 .sidebar-logo {
@@ -262,9 +269,10 @@ th {
 footer {
     background: #1f2937;
     color: white;
-    padding: 20px;
+    padding: 10px 20px;
     text-align: center;
     margin-top: auto;
+    font-size: 0.85rem;
 }
 
 .footer-content p {

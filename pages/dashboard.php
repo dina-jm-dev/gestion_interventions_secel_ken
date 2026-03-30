@@ -43,15 +43,17 @@ if ($role == 'admin') {
         $id_tech = $_POST['id_tech'];
         $id_besoin = $_POST['id_besoin'];
         $lieu = clean($_POST['lieu']);
+        $description_besoin = clean($_POST['description_besoin'] ?? '');
+        $date_fin_prevue = $_POST['date_fin_prevue'];
         
         $conn->beginTransaction();
         try {
-            $stmt = $conn->prepare("INSERT INTO interventions (id_client, nom, lieu, statut) VALUES (?, ?, ?, 'attente')");
-            $stmt->execute([$id_client, $nom_inter, $lieu]);
+            $stmt = $conn->prepare("INSERT INTO interventions (id_client, nom, description_besoin, lieu, statut) VALUES (?, ?, ?, ?, 'attente')");
+            $stmt->execute([$id_client, $nom_inter, $description_besoin, $lieu]);
             $id_inter = $conn->lastInsertId();
             
-            $stmt = $conn->prepare("INSERT INTO affectations (id_technicien, id_intervention) VALUES (?, ?)");
-            $stmt->execute([$id_tech, $id_inter]);
+            $stmt = $conn->prepare("INSERT INTO affectations (id_technicien, id_intervention, date_fin_prevue) VALUES (?, ?, ?)");
+            $stmt->execute([$id_tech, $id_inter, $date_fin_prevue]);
             
             $stmt = $conn->prepare("DELETE FROM besoins WHERE id_besoin = ?");
             $stmt->execute([$id_besoin]);
@@ -65,28 +67,30 @@ if ($role == 'admin') {
         }
     }
 
-    // Validation Statut
-    if (isset($_POST['valider_statut'])) {
-        $id_i = $_POST['id_intervention'];
-        // L'admin valide = statut final 'valide'
-        $stmt = $conn->prepare("UPDATE interventions SET statut = 'valide' WHERE id_intervention = ?");
-        $stmt->execute([$id_i]);
-        header("Location: index.php?page=dashboard&msg=updated");
-        exit();
-    }
+    // Validation Admin supprimee car remplacee par Client + Tech
 }
 
 // -- LOGIQUE TECHNICIEN --
 if ($role == 'technicien') {
-    // Missions affectées
-    $stmt = $conn->prepare("SELECT i.*, u.nom as client_nom 
+    // Missions affectées et en cours
+    $stmt = $conn->prepare("SELECT i.*, u.nom as client_nom, a.date_fin_prevue, a.heure_arrivee, a.heure_depart 
                            FROM interventions i 
                            JOIN utilisateurs u ON i.id_client = u.id_utilisateur 
                            JOIN affectations a ON i.id_intervention = a.id_intervention 
-                           WHERE a.id_technicien = ? AND i.statut != 'termine'
+                           WHERE a.id_technicien = ? AND i.validation_technicien = 0
                            ORDER BY i.date_creation DESC");
     $stmt->execute([$id_user]);
     $missions = $stmt->fetchAll();
+
+    // Historique des missions (Terminées par le Tech)
+    $stmt = $conn->prepare("SELECT i.*, u.nom as client_nom, a.heure_arrivee, a.heure_depart 
+                           FROM interventions i 
+                           JOIN utilisateurs u ON i.id_client = u.id_utilisateur 
+                           JOIN affectations a ON i.id_intervention = a.id_intervention 
+                           WHERE a.id_technicien = ? AND i.validation_technicien = 1
+                           ORDER BY i.date_creation DESC");
+    $stmt->execute([$id_user]);
+    $historique_missions = $stmt->fetchAll();
 
     // Mise à jour statut par le tech
     if (isset($_POST['update_status'])) {
@@ -94,17 +98,19 @@ if ($role == 'technicien') {
         $statut = $_POST['statut'];
         
         if ($statut == 'en_cours') {
-            $date_debut = $_POST['date_debut'] ?? date('Y-m-d H:i:s');
+            $heure_arrivee = $_POST['heure_arrivee'] ?? date('H:i');
+            $date_debut = date('Y-m-d H:i:s'); // On garde aussi la date de début technique
             $stmt = $conn->prepare("UPDATE interventions SET statut = 'en_cours' WHERE id_intervention = ?");
             $stmt->execute([$id_i]);
-            $stmt2 = $conn->prepare("UPDATE affectations SET date_debut = ? WHERE id_intervention = ? AND id_technicien = ?");
-            $stmt2->execute([$date_debut, $id_i, $id_user]);
+            $stmt2 = $conn->prepare("UPDATE affectations SET date_debut = ?, heure_arrivee = ? WHERE id_intervention = ? AND id_technicien = ?");
+            $stmt2->execute([$date_debut, $heure_arrivee, $id_i, $id_user]);
         } elseif ($statut == 'termine') {
+            $heure_depart = $_POST['heure_depart'] ?? date('H:i');
             $date_fin = date('Y-m-d H:i:s');
-            $stmt = $conn->prepare("UPDATE interventions SET statut = 'termine' WHERE id_intervention = ?");
+            $stmt = $conn->prepare("UPDATE interventions SET validation_technicien = 1 WHERE id_intervention = ?");
             $stmt->execute([$id_i]);
-            $stmt2 = $conn->prepare("UPDATE affectations SET date_fin = ? WHERE id_intervention = ? AND id_technicien = ?");
-            $stmt2->execute([$date_fin, $id_i, $id_user]);
+            $stmt2 = $conn->prepare("UPDATE affectations SET date_fin = ?, heure_depart = ? WHERE id_intervention = ? AND id_technicien = ?");
+            $stmt2->execute([$date_fin, $heure_depart, $id_i, $id_user]);
         }
         
         header("Location: index.php?page=dashboard&msg=status_sent");
@@ -123,6 +129,15 @@ if ($role == 'client') {
     $stmt = $conn->prepare("SELECT * FROM interventions WHERE id_client = ? AND statut != 'termine' ORDER BY date_creation DESC");
     $stmt->execute([$id_user]);
     $mes_interventions = $stmt->fetchAll();
+
+    // Validation Client
+    if (isset($_POST['valider_client_fin'])) {
+        $id_i = $_POST['id_intervention'];
+        $stmt = $conn->prepare("UPDATE interventions SET validation_client = 1, statut = 'termine' WHERE id_intervention = ? AND validation_technicien = 1");
+        $stmt->execute([$id_i]);
+        header("Location: index.php?page=dashboard&msg=validated");
+        exit();
+    }
 }
 ?>
 
@@ -166,7 +181,12 @@ if ($role == 'client') {
                                 <input type="hidden" name="id_client" value="<?php echo $b['id_client']; ?>">
                                 <input type="hidden" name="id_besoin" value="<?php echo $b['id_besoin']; ?>">
                                 <input type="hidden" name="lieu" value="<?php echo htmlspecialchars($b['lieu'] ?? ''); ?>">
+                                <input type="hidden" name="description_besoin" value="<?php echo htmlspecialchars($b['description'] ?? ''); ?>">
                                 <input type="text" name="nom_inter" placeholder="Titre de l'intervention" class="form-input" required style="margin-bottom: 8px; font-size: 0.85rem;">
+                                <div style="margin-bottom: 8px;">
+                                    <label class="text-small">Date fin prévue :</label>
+                                    <input type="datetime-local" name="date_fin_prevue" required class="form-input" style="font-size: 0.85rem;">
+                                </div>
                                 <div style="display: flex; gap: 5px;">
                                     <select name="id_tech" class="form-input" required style="font-size: 0.85rem; padding: 5px;">
                                         <option value="">Choisir Technicien</option>
@@ -209,24 +229,21 @@ if ($role == 'client') {
                                     <?php 
                                         $badge_class = 'badge-info';
                                         if($i['statut'] == 'en_cours') $badge_class = 'badge-warning';
-                                        if($i['statut'] == 'termine') $badge_class = 'badge-primary'; // Tech finished
-                                        if($i['statut'] == 'valide') $badge_class = 'badge-success'; // Admin validated
+                                        if($i['statut'] == 'termine' || $i['validation_client'] == 1) $badge_class = 'badge-success'; 
                                         if($i['statut'] == 'annule') $badge_class = 'badge-danger';
-                                    ?>
-                                    <span class="badge <?php echo $badge_class; ?>"><?php echo ucfirst($i['statut']); ?></span>
+                                        ?>
+                                    <span class="badge <?php echo $badge_class; ?>"><?php echo ucfirst(str_replace('_', ' ', $i['statut'])); ?></span>
+                                    <?php if($i['validation_technicien'] == 1 && $i['validation_client'] == 0): ?>
+                                       <br><span class="text-xs text-warning">Attente accord client</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
-                                    <form method="POST" class="gap-1">
-                                        <input type="hidden" name="id_intervention" value="<?php echo $i['id_intervention']; ?>">
-                                        <?php if($i['statut'] == 'termine'): ?>
-                                            <input type="hidden" name="valider_statut" value="1">
-                                            <button type="submit" class="btn btn-primary action-btn action-btn-success">Valider</button>
-                                        <?php elseif($i['statut'] == 'valide'): ?>
-                                            <span class="text-small text-success">Validé ✅</span>
-                                        <?php else: ?>
-                                            <span class="text-small text-muted py-1">En cours tech</span>
-                                        <?php endif; ?>
-                                    </form>
+                                    <!-- Plus de validation admin, automatique avec tech + client -->
+                                    <span class="text-small text-muted py-1" style="display:block; margin-bottom: 5px;">Double validation</span>
+                                    <div style="display: flex; gap: 5px;">
+                                        <a href="index.php?page=print_rapport&id=<?php echo $i['id_intervention']; ?>" target="_blank" class="btn bg-gray text-xs action-btn" style="padding: 4px; display:flex; justify-content:center; align-items:center;" title="Rapport"><i class="fas fa-file-alt"></i> Rap.</a>
+                                        <a href="index.php?page=print_facture&id=<?php echo $i['id_intervention']; ?>" target="_blank" class="btn bg-gray text-xs action-btn" style="padding: 4px; display:flex; justify-content:center; align-items:center;" title="Facture"><i class="fas fa-file-invoice-dollar"></i> Fac.</a>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -256,25 +273,70 @@ if ($role == 'client') {
                                 <div class="mb-3">
                                     <div class="text-xs text-muted">CLIENT</div>
                                     <div class="fw-bold"><?php echo $m['client_nom']; ?></div>
+                                    <div class="text-xs mt-1"><strong>Lieu :</strong> <?php echo $m['lieu']; ?></div>
+                                    <div class="text-xs"><strong>Besoin :</strong> <?php echo htmlspecialchars($m['description_besoin']); ?></div>
+                                    <hr style="margin: 8px 0; border: none; border-top: 1px solid var(--border-color);">
+                                    <div class="text-xs"><strong>Date fin prévue :</strong> <?php echo $m['date_fin_prevue'] ? date('d/m/Y H:i', strtotime($m['date_fin_prevue'])) : 'N/C'; ?></div>
                                 </div>
                                 <div class="gap-2">
-                                    <form method="POST" class="flex-1">
+                                    <form method="POST" class="flex-1" style="display:flex; flex-direction:column; gap:5px;">
                                         <input type="hidden" name="id_intervention" value="<?php echo $m['id_intervention']; ?>">
                                         
                                         <?php if ($m['statut'] == 'attente'): ?>
                                             <div class="mb-1">
-                                                <label class="text-small">Début :</label>
-                                                <input type="datetime-local" name="date_debut" class="form-input date-input" required>
+                                                <label class="text-small">Relevé Heure Arrivée (HH:MM) :</label>
+                                                <input type="time" name="heure_arrivee" class="form-input date-input" required>
                                             </div>
                                             <input type="hidden" name="statut" value="en_cours">
-                                            <button type="submit" name="update_status" class="btn btn-primary w-full text-xs">Démarrer</button>
+                                            <button type="submit" name="update_status" class="btn btn-primary w-full text-xs">Je suis sur place (Démarrer)</button>
                                         <?php elseif ($m['statut'] == 'en_cours'): ?>
+                                            <div class="mb-1">
+                                                <label class="text-small">Relevé Heure Départ (HH:MM) :</label>
+                                                <input type="time" name="heure_depart" class="form-input date-input" required>
+                                            </div>
                                             <input type="hidden" name="statut" value="termine">
-                                            <button type="submit" name="update_status" class="btn btn-primary action-btn-success w-full text-xs border-0">Terminer</button>
+                                            <button type="submit" name="update_status" class="btn action-btn-success w-full text-xs border-0">Signaler Départ (Terminer)</button>
                                         <?php endif; ?>
                                         
                                     </form>
-                                    <a href="index.php?page=tech_rapport&id=<?php echo $m['id_intervention']; ?>" class="btn bg-gray flex-1 text-xs">Rapport</a>
+                                    <div style="display:flex; gap: 5px; margin-top:5px;">
+                                        <a href="index.php?page=tech_rapport&id=<?php echo $m['id_intervention']; ?>" class="btn bg-gray flex-1 text-xs text-center"><i class="fas fa-edit"></i> Rédiger</a>
+                                        <a href="index.php?page=print_rapport&id=<?php echo $m['id_intervention']; ?>" target="_blank" class="btn bg-gray flex-1 text-xs text-center"><i class="fas fa-print"></i> Rapport</a>
+                                        <a href="index.php?page=print_facture&id=<?php echo $m['id_intervention']; ?>" target="_blank" class="btn bg-gray flex-1 text-xs text-center"><i class="fas fa-print"></i> Facture</a>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </section>
+
+        <!-- NOUVELLE SECTION HISTORIQUE TECH -->
+        <section class="mt-5">
+            <h3>Historique de mes interventions (Terminées)</h3>
+            <div class="mt-3">
+                <?php if (empty($historique_missions)): ?>
+                    <div class="card empty-state">
+                        Vous n'avez pas encore terminé d'interventions.
+                    </div>
+                <?php else: ?>
+                    <div class="tech-cards-grid">
+                        <?php foreach ($historique_missions as $m): ?>
+                            <div class="card bg-light">
+                                <div class="flex-between mb-3">
+                                    <div class="fw-bold text-lg"><?php echo $m['nom']; ?></div>
+                                    <span class="badge badge-success">Terminé</span>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="text-xs text-muted">CLIENT</div>
+                                    <div class="fw-bold"><?php echo $m['client_nom']; ?></div>
+                                    <hr style="margin: 8px 0; border: none; border-top: 1px solid var(--border-color);">
+                                    <div class="text-xs"><strong>Heures Relevées :</strong> <?php echo $m['heure_arrivee'] ? substr($m['heure_arrivee'], 0, 5) : '--:--'; ?> à <?php echo $m['heure_depart'] ? substr($m['heure_depart'], 0, 5) : '--:--'; ?></div>
+                                </div>
+                                <div style="display:flex; gap: 5px;">
+                                    <a href="index.php?page=print_rapport&id=<?php echo $m['id_intervention']; ?>" target="_blank" class="btn bg-gray flex-1 text-xs text-center"><i class="fas fa-print"></i> Rapport</a>
+                                    <a href="index.php?page=print_facture&id=<?php echo $m['id_intervention']; ?>" target="_blank" class="btn bg-gray flex-1 text-xs text-center"><i class="fas fa-print"></i> Facture</a>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -294,14 +356,30 @@ if ($role == 'client') {
                             Vous n'avez aucune demande active.
                         </div>
                     <?php else: ?>
-                        <!-- Interventions en cours -->
+                        <!-- Interventions en cours et à valider -->
                         <?php foreach ($mes_interventions as $mi): ?>
-                            <div class="card flex-between-center stat-primary">
+                            <div class="card flex-between-center stat-primary <?php echo $mi['validation_technicien'] == 1 ? 'border-warning highlight-card' : ''; ?>" style="<?php echo $mi['validation_technicien'] == 1 ? 'border-left: 4px solid var(--warning);' : ''; ?>">
                                 <div>
                                     <div class="fw-bold"><?php echo $mi['nom']; ?></div>
-                                    <div class="text-xs text-muted">Reçue le <?php echo formatDate($mi['date_creation']); ?></div>
+                                    <div class="text-xs text-muted">Enregistrée le <?php echo formatDate($mi['date_creation']); ?></div>
+                                    <?php if ($mi['validation_technicien'] == 1): ?>
+                                        <p class="text-small" style="color: var(--warning); font-weight: bold; margin-top: 4px;">Le technicien a signalé la fin de l'intervention. Veuillez confirmer.</p>
+                                    <?php endif; ?>
                                 </div>
-                                <span class="badge badge-info"><?php echo ucfirst($mi['statut']); ?></span>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                                    <?php if ($mi['validation_technicien'] == 1): ?>
+                                        <form method="POST">
+                                            <input type="hidden" name="id_intervention" value="<?php echo $mi['id_intervention']; ?>">
+                                            <button type="submit" name="valider_client_fin" class="btn action-btn-success text-xs">Valider (Clôturer)</button>
+                                        </form>
+                                    <?php else: ?>
+                                        <span class="badge badge-info"><?php echo ucfirst(str_replace('_', ' ', $mi['statut'])); ?></span>
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($mi['statut'] == 'termine' || $mi['validation_technicien'] == 1): ?>
+                                        <a href="index.php?page=print_facture&id=<?php echo $mi['id_intervention']; ?>" target="_blank" class="btn bg-gray text-xs" style="padding: 4px 8px;"><i class="fas fa-print"></i> Imprimer Facture</a>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         <?php endforeach; ?>
 

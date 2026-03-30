@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS besoins (
     id_besoin INT AUTO_INCREMENT PRIMARY KEY,
     id_client INT NOT NULL,
     description TEXT NOT NULL,
+    lieu VARCHAR(150) UNIQUE NOT NULL,
     date_besoin DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_client) REFERENCES utilisateurs(id_utilisateur) ON DELETE CASCADE
 ) ENGINE=InnoDB;

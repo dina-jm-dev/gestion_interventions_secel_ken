@@ -68,21 +68,21 @@ if (isset($_POST['register'])) {
         <form method="POST">
             <div class="form-group mb-2">
                 <label class="form-label">Nom complet</label>
-                <input type="text" name="nom" class="form-input auth-input" required placeholder="Ex: Jean Dupont">
+                <input type="text" name="nom" class="form-input auth-input" required placeholder="Ex: William Kengne">
             </div>
             <div class="form-grid mb-2">
                 <div class="form-group">
                     <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-input auth-input" required placeholder="email@exemple.com">
+                    <input type="email" name="email" class="form-input auth-input" required placeholder="kenmoe@gamil.com">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Téléphone</label>
-                    <input type="text" name="telephone" class="form-input auth-input" required placeholder="Ex: 0123456789">
+                    <input type="text" name="telephone" class="form-input auth-input" required placeholder="Ex: 699876543">
                 </div>
             </div>
             <div class="form-group mb-2">
                 <label class="form-label">Identifiant de connexion</label>
-                <input type="text" name="login" class="form-input auth-input" required placeholder="Ex: jean.dupont">
+                <input type="text" name="login" class="form-input auth-input" required placeholder="Ex: Wiliam.kenmoe">
             </div>
             <div class="form-grid mb-3">
                 <div class="form-group">
